@@ -1,7 +1,9 @@
 package com.chetbox.mousecursor;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
 import android.content.Intent;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Handler;
@@ -33,20 +35,20 @@ public class MouseAccessibilityService extends AccessibilityService {
 
         StringBuilder sb = new StringBuilder();
         if (depth > 0) {
-            for (int i=0; i<depth; i++) {
+            for (int i = 0; i < depth; i++) {
                 sb.append("  ");
             }
             sb.append("\u2514 ");
         }
         sb.append(nodeInfo.getClassName());
-        sb.append(" (" + nodeInfo.getChildCount() +  ")");
+        sb.append(" (" + nodeInfo.getChildCount() + ")");
         sb.append(" " + bounds.toString());
         if (nodeInfo.getText() != null) {
             sb.append(" - \"" + nodeInfo.getText() + "\"");
         }
         Log.v(TAG, sb.toString());
 
-        for (int i=0; i<nodeInfo.getChildCount(); i++) {
+        for (int i = 0; i < nodeInfo.getChildCount(); i++) {
             AccessibilityNodeInfo childNode = nodeInfo.getChild(i);
             if (childNode != null) {
                 logNodeHierachy(childNode, depth + 1);
@@ -62,7 +64,7 @@ public class MouseAccessibilityService extends AccessibilityService {
             return null;
         }
 
-        for (int i=0; i<sourceNode.getChildCount(); i++) {
+        for (int i = 0; i < sourceNode.getChildCount(); i++) {
             AccessibilityNodeInfo nearestSmaller = findSmallestNodeAtPoint(sourceNode.getChild(i), x, y);
             if (nearestSmaller != null) {
                 return nearestSmaller;
@@ -115,7 +117,8 @@ public class MouseAccessibilityService extends AccessibilityService {
                                     onMouseMove(new MouseEvent(event));
                                 }
                             });
-                        } catch (IOException e) {}
+                        } catch (IOException e) {
+                        }
                     }
                 }
             }).start();
@@ -145,6 +148,34 @@ public class MouseAccessibilityService extends AccessibilityService {
         nodeInfo.recycle();
     }
 
+    private void scroll(int fromX, int fromY, int toX, int toY) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+
+            Path path = new Path();
+            path.moveTo(fromX, fromY);
+            path.lineTo(toX, toY);
+            GestureDescription gesture = builder.addStroke(
+                    new GestureDescription.StrokeDescription(
+                            path,
+                            10L,
+                            200L))
+                    .build();
+
+            dispatchGesture(gesture, new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription gestureDescription) {
+                    super.onCompleted(gestureDescription);
+                }
+
+                @Override
+                public void onCancelled(GestureDescription gestureDescription) {
+                    super.onCancelled(gestureDescription);
+                }
+            }, null);
+        }
+    }
+
     public void onMouseMove(MouseEvent event) {
         switch (event.direction) {
             case MouseEvent.MOVE_LEFT:
@@ -161,6 +192,18 @@ public class MouseAccessibilityService extends AccessibilityService {
                 break;
             case MouseEvent.LEFT_CLICK:
                 click();
+                break;
+            case MouseEvent.LEFT_SCROLL:
+                scroll(100, 500, 1000, 500);
+                break;
+            case MouseEvent.RIGHT_SCROLL:
+                scroll(1000, 500, 100, 500);
+                break;
+            case MouseEvent.DOWN_SCROLL:
+                scroll(300, 100, 300, 800);
+                break;
+            case MouseEvent.TOP_SCROLL:
+                scroll(300, 800, 300, 100);
                 break;
             default:
                 break;
